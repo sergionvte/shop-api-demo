@@ -283,5 +283,6 @@ Un único servicio web Docker. `start.sh` aplica las migraciones, carga los dato
 | `DATABASE_URL` | `sqlite+aiosqlite:////tmp/demo.db` (disco temporal) |
 | `ALLOW_SQLITE_IN_PRODUCTION` | `true` |
 | `ALLOWED_HOSTS` | `shop-api-demo.onrender.com` |
+| `TRUSTED_PROXIES` | `127.0.0.1` (el proxy de Render llega desde dentro del contenedor: IP real del cliente y HSTS) |
 | `DOCS_ENABLED` | `true` |
 | `DEMO_ADMIN_EMAIL` / `DEMO_ADMIN_PASSWORD` | admin de la demo (la contraseña no se publica) |
