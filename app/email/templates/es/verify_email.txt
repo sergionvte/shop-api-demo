@@ -1,0 +1,9 @@
+Confirma que esta dirección es tuya para terminar de configurar tu cuenta de {{ brand.name }}.
+
+El enlace caduca en {{ expires_in }}.
+
+{{ action_url }}
+
+Si no has creado ninguna cuenta, ignora este correo.
+
+{% include "_footer.txt" %}

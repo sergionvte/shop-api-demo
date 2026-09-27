@@ -1,0 +1,7 @@
+Hola{% if user_name %} {{ user_name }}{% endif %}:
+
+Se ha pedido cambiar el email de tu cuenta de {{ brand.name }} a {{ new_email }}. El cambio solo se aplicará cuando se confirme la nueva dirección.
+
+Si no has sido tú, cambia tu contraseña ahora{% if brand.support_email %} y escribe a {{ brand.support_email }}{% endif %}.
+
+{% include "_footer.txt" %}

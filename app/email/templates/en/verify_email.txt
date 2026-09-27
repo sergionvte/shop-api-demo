@@ -1,0 +1,9 @@
+Please confirm that this email address belongs to you to finish setting up your {{ brand.name }} account.
+
+The link expires in {{ expires_in }}.
+
+{{ action_url }}
+
+If you did not create an account, you can ignore this email.
+
+{% include "_footer.txt" %}

@@ -1,0 +1,1 @@
+Se ha cambiado el email de tu cuenta de {{ brand.name }}

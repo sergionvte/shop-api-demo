@@ -1,0 +1,9 @@
+Someone asked to use this address as the new email of a {{ brand.name }} account.
+
+Confirm it with this link. It expires in {{ expires_in }}.
+
+{{ action_url }}
+
+If it was not you, ignore this email: nothing will change.
+
+{% include "_footer.txt" %}

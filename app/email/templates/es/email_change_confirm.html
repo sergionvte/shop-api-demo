@@ -1,0 +1,8 @@
+{% extends "_layout.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Se ha pedido usar esta dirección como nuevo email de una cuenta de {{ brand.name }}.</p>
+<p style="margin:0 0 16px;">Confírmalo con este enlace. Caduca en {{ expires_in }}.</p>
+{% set button_label = "Confirmar nuevo email" %}
+{% include "_button.html" %}
+<p style="margin:0 0 16px;color:#52525b;">Si no has sido tú, ignora este correo: no cambiará nada.</p>
+{% endblock %}

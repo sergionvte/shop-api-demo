@@ -1,0 +1,967 @@
+{
+  "info": {
+    "_postman_id": "852cbd02-9823-48b6-94dc-d0ea5b796dc7",
+    "name": "API (FastAPI + JWT)",
+    "description": "Colección base para las APIs creadas con la plantilla.\n\n1. Ajusta las variables de la colección `baseUrl`, `apiPrefix`, `email` y `password` (usa **Current value**, no se sincroniza).\n2. Ejecuta **Auth > Login**: los tokens se guardan solos.\n3. El resto de peticiones heredan `Bearer {{accessToken}}` y el token se renueva automáticamente antes de caducar.\n4. **Account**: recuperación de contraseña y verificación de email. Copia el token del correo en `resetToken`/`verifyToken` (en local sale en el log con `EMAIL_BACKEND=console`, o en Mailpit con `make mail`).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Renovación automática: si el access token caduca en menos de 30 s y hay refresh token,",
+          "// se pide un par nuevo antes de enviar la petición (excepto en /auth/ y /health/).",
+          "const url = pm.request.url.toString();",
+          "const exp = Number(pm.collectionVariables.get(\"accessTokenExpiresAt\") || 0);",
+          "const refresh = pm.collectionVariables.get(\"refreshToken\");",
+          "if (!url.includes(\"/auth/\") && !url.includes(\"/health/\") && refresh && Date.now() > exp - 30000) {",
+          "  pm.sendRequest({",
+          "    url: pm.variables.get(\"baseUrl\") + pm.variables.get(\"apiPrefix\") + \"/auth/refresh\",",
+          "    method: \"POST\",",
+          "    header: { \"Content-Type\": \"application/json\" },",
+          "    body: { mode: \"raw\", raw: JSON.stringify({ refresh_token: refresh }) }",
+          "  }, (err, res) => {",
+          "    if (!err && res.code === 200) {",
+          "      const d = res.json();",
+          "      pm.collectionVariables.set(\"accessToken\", d.access_token);",
+          "      pm.collectionVariables.set(\"refreshToken\", d.refresh_token);",
+          "      pm.collectionVariables.set(\"accessTokenExpiresAt\", String(Date.now() + d.expires_in * 1000));",
+          "      console.log(\"Token renovado automáticamente\");",
+          "    } else {",
+          "      console.warn(\"Refresh automático falló: vuelve a ejecutar Auth > Login\", err || (res && res.code));",
+          "    }",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "apiPrefix",
+      "value": "/api/v1"
+    },
+    {
+      "key": "email",
+      "value": "usuario@example.com"
+    },
+    {
+      "key": "password",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "accessTokenExpiresAt",
+      "value": "0"
+    },
+    {
+      "key": "jobId",
+      "value": ""
+    },
+    {
+      "key": "resetToken",
+      "value": "",
+      "description": "Token del correo de recuperación (lo que va tras #token=)"
+    },
+    {
+      "key": "verifyToken",
+      "value": "",
+      "description": "Token del correo de verificación o de cambio de email"
+    },
+    {
+      "key": "newPassword",
+      "value": "another long passphrase 2026",
+      "description": "Contraseña nueva para Reset password (12+ caracteres; cámbiala si quieres)",
+      "type": "secret"
+    },
+    {
+      "key": "newEmail",
+      "value": "nuevo@example.com",
+      "description": "Dirección nueva para Change email"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/register",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/register"
+              ]
+            },
+            "description": "Crea una cuenta (JSON). Contraseña: 12+ caracteres, sin contener tu email. Con verificación de email activa responde 202 y el enlace llega por correo (ver carpeta Account).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"full_name\": \"Nombre Apellido\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 201 (sin verificación) o 202 (con EMAIL_VERIFICATION: mismo cuerpo para cualquier email)",
+                  "pm.test(\"status 201/202\", () => pm.expect(pm.response.code).to.be.oneOf([201, 202]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/login",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/login"
+              ]
+            },
+            "description": "OAuth2 password flow: **x-www-form-urlencoded** (no JSON). Guarda access y refresh token.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "{{email}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Guarda los tokens en variables de la colección para las siguientes peticiones.",
+                  "if (pm.response.code === 200) {",
+                  "  const d = pm.response.json();",
+                  "  pm.collectionVariables.set(\"accessToken\", d.access_token);",
+                  "  pm.collectionVariables.set(\"refreshToken\", d.refresh_token);",
+                  "  pm.collectionVariables.set(\"accessTokenExpiresAt\", String(Date.now() + d.expires_in * 1000));",
+                  "}",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users/me",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/users/me"
+              ]
+            },
+            "description": "Comprueba que el token funciona."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/refresh"
+              ]
+            },
+            "description": "Rota el refresh token: el anterior deja de valer. 409 `refresh_token_rotated` = otra pestaña ya lo renovó.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Guarda los tokens en variables de la colección para las siguientes peticiones.",
+                  "if (pm.response.code === 200) {",
+                  "  const d = pm.response.json();",
+                  "  pm.collectionVariables.set(\"accessToken\", d.access_token);",
+                  "  pm.collectionVariables.set(\"refreshToken\", d.refresh_token);",
+                  "  pm.collectionVariables.set(\"accessTokenExpiresAt\", String(Date.now() + d.expires_in * 1000));",
+                  "}",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (solo lectura)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/login",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/login"
+              ]
+            },
+            "description": "Token con `scope=read`: no puede crear, modificar ni borrar (403).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "{{email}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{password}}",
+                  "type": "text"
+                },
+                {
+                  "key": "scope",
+                  "value": "read",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Guarda los tokens en variables de la colección para las siguientes peticiones.",
+                  "if (pm.response.code === 200) {",
+                  "  const d = pm.response.json();",
+                  "  pm.collectionVariables.set(\"accessToken\", d.access_token);",
+                  "  pm.collectionVariables.set(\"refreshToken\", d.refresh_token);",
+                  "  pm.collectionVariables.set(\"accessTokenExpiresAt\", String(Date.now() + d.expires_in * 1000));",
+                  "}",
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout (esta sesión)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/logout",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/logout"
+              ]
+            },
+            "description": "Revoca el refresh token (cierra esta sesión). El access token vigente sigue valiendo hasta su caducidad (máx. 15 min).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('refreshToken', '');",
+                  "pm.test(\"status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout de todas las sesiones",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/logout-all",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/logout-all"
+              ]
+            },
+            "description": "Invalida al instante TODOS los tokens del usuario (útil si se sospecha robo)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('refreshToken', '');",
+                  "pm.collectionVariables.set('accessToken', '');",
+                  "pm.test(\"status 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Account",
+      "description": "Recuperación de contraseña, verificación y cambio de email (solo si la API tiene `PASSWORD_RESET=on` o `EMAIL_VERIFICATION=optional|required`; si no, responden 403).\n\nLos enlaces de los correos llevan el token en el fragmento: `.../reset-password#token=pr_...`. Copia el token (lo que va después de `#token=`) en la variable `resetToken` o `verifyToken`, de la colección o de tu *Environment* (se leen con `pm.variables.get`, valen las dos). En local: con `EMAIL_BACKEND=console` sale en el log de la API; con `EMAIL_BACKEND=file`, abre el `.txt` (no el `.eml`, que parte el token); con `make mail` (Mailpit), en http://localhost:8025. Sin token, esas peticiones comprueban el rechazo (400/422). Con newman: `--env-var resetToken=... --env-var verifyToken=...`.",
+      "item": [
+        {
+          "name": "Account features",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/features",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/features"
+              ]
+            },
+            "description": "Qué flujos de cuenta ofrece esta API (para mostrar u ocultar opciones en el frontend).",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('flags', () => pm.expect(pm.response.json()).to.have.property('password_reset'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resend verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/email/verify/resend",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/email/verify/resend"
+              ]
+            },
+            "description": "Reenvía el enlace de verificación. Sin sesión, con el email; con sesión, sin cuerpo. Siempre 202.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/email/verify",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/email/verify"
+              ]
+            },
+            "description": "Confirma el email con el token del correo (alta o cambio de email). Pulsarlo dos veces también da 204.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verifyToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// pm.variables.get: vale igual si la variable está en un Environment o en la colección.",
+                  "const token = pm.variables.get('verifyToken');",
+                  "if (!token) {",
+                  "  pm.test('sin verifyToken: la API rechaza la petición (400 token / 422 datos)', () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "    if (pm.response.code === 400) pm.expect(pm.response.json().code).to.eql('invalid_or_expired_token');",
+                  "  });",
+                  "} else {",
+                  "  pm.test('status 204', () => pm.response.to.have.status(204));",
+                  "  if (pm.environment.has('verifyToken')) pm.environment.set('verifyToken', '');",
+                  "  pm.collectionVariables.set('verifyToken', '');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Change email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/users/me/email",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/users/me/email"
+              ]
+            },
+            "description": "Pide cambiar el email: llega un enlace a la dirección NUEVA (se confirma con Verify email) y un aviso a la antigua. 202 aunque la dirección esté ocupada.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_email\": \"{{newEmail}}\",\n  \"current_password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request password reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/password/forgot",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/password/forgot"
+              ]
+            },
+            "description": "Pide el enlace de recuperación. Responde SIEMPRE 202 con el mismo cuerpo (no revela si la cuenta existe).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 202', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validate reset token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/password/reset/validate",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/password/reset/validate"
+              ]
+            },
+            "description": "Comprueba, sin gastarlo, si el enlace sigue valiendo (204) o ha caducado (400).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// pm.variables.get: vale igual si la variable está en un Environment o en la colección.",
+                  "const token = pm.variables.get('resetToken');",
+                  "if (!token) {",
+                  "  pm.test('sin resetToken: la API rechaza la petición (400 token / 422 datos)', () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "    if (pm.response.code === 400) pm.expect(pm.response.json().code).to.eql('invalid_or_expired_token');",
+                  "  });",
+                  "} else {",
+                  "  pm.test('status 204', () => pm.response.to.have.status(204));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/password/reset",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/auth/password/reset"
+              ]
+            },
+            "description": "Fija la contraseña nueva (un solo uso). Cierra todas las sesiones: después, Auth > Login con la contraseña nueva.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"new_password\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// pm.variables.get: vale igual si la variable está en un Environment o en la colección.",
+                  "const token = pm.variables.get('resetToken');",
+                  "if (!token) {",
+                  "  pm.test('sin resetToken: la API rechaza la petición (400 token / 422 datos)', () => {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 422]);",
+                  "    if (pm.response.code === 400) pm.expect(pm.response.json().code).to.eql('invalid_or_expired_token');",
+                  "  });",
+                  "} else {",
+                  "  pm.test('status 204', () => pm.response.to.have.status(204));",
+                  "  // La contraseña nueva pasa a ser la de Login, en el ámbito donde esté `password`.",
+                  "  const scope = pm.environment.has('password') ? pm.environment : pm.collectionVariables;",
+                  "  scope.set('password', pm.variables.get('newPassword'));",
+                  "  if (pm.environment.has('resetToken')) pm.environment.set('resetToken', '');",
+                  "  pm.collectionVariables.set('resetToken', '');",
+                  "  pm.collectionVariables.set('accessToken', '');",
+                  "  pm.collectionVariables.set('refreshToken', '');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Recursos (ejemplo)",
+      "item": [
+        {
+          "name": "Listar",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/<recurso>?limit=20&offset=0&order_by=-created_at",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/<recurso>?limit=20&offset=0&order_by=-created_at"
+              ]
+            },
+            "description": "Sustituye `<recurso>` (p. ej. `courses`). Respuesta: `{items, total, limit, offset}`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/<recurso>",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/<recurso>"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campo\": \"valor\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Acción en segundo plano",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/<recurso>/<id>/<accion>",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/<recurso>/<id>/<accion>"
+              ]
+            },
+            "description": "Responde 202 con `job_id` y `status_url`. Luego: Jobs > Estado del trabajo.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) { pm.collectionVariables.set('jobId', pm.response.json().job_id); }",
+                  "pm.test(\"status 202\", () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "Mis trabajos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/jobs",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/jobs"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Estado del trabajo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/jobs/{{jobId}}",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/jobs/{{jobId}}"
+              ]
+            },
+            "description": "`queued` → `running` → `succeeded` (ver `result`) / `failed` (ver `error`) / `cancelled`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancelar trabajo",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/jobs/{{jobId}}/cancel",
+              "host": [
+                "{{baseUrl}}{{apiPrefix}}/jobs/{{jobId}}/cancel"
+              ]
+            },
+            "description": "Solo si sigue en `queued` (si no, 409)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Live",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/live",
+              "host": [
+                "{{baseUrl}}/health/live"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ready (BD)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": [
+                "{{baseUrl}}/health/ready"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+Someone tried to create a {{ brand.name }} account with this email, but there is already one.
+
+If it was you, sign in with your password{% if password_reset %} or use "Forgot password" to choose a new one{% endif %}.
+
+If it was not you, you can ignore this email: your account has not changed.
+
+{% include "_footer.txt" %}

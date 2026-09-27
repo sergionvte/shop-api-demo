@@ -1,0 +1,1 @@
+Email change requested on your {{ brand.name }} account

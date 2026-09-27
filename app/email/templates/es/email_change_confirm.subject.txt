@@ -1,0 +1,1 @@
+Confirma tu nuevo email en {{ brand.name }}

@@ -1,0 +1,8 @@
+{% extends "_layout.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Please confirm that this email address belongs to you to finish setting up your {{ brand.name }} account.</p>
+<p style="margin:0 0 16px;">The link expires in {{ expires_in }}.</p>
+{% set button_label = "Confirm my email" %}
+{% include "_button.html" %}
+<p style="margin:0 0 16px;color:#52525b;">If you did not create an account, you can ignore this email.</p>
+{% endblock %}

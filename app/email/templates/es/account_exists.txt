@@ -1,0 +1,7 @@
+Alguien ha intentado crear una cuenta de {{ brand.name }} con este email, pero ya existe una.
+
+Si has sido tú, inicia sesión con tu contraseña{% if password_reset %} o usa "¿Olvidaste tu contraseña?" para elegir una nueva{% endif %}.
+
+Si no has sido tú, ignora este correo: tu cuenta no ha cambiado.
+
+{% include "_footer.txt" %}

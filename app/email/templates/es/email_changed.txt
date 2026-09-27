@@ -1,0 +1,7 @@
+Hola{% if user_name %} {{ user_name }}{% endif %}:
+
+El email de tu cuenta de {{ brand.name }} se ha cambiado a {{ new_email }}. Se han cerrado todas las sesiones.
+
+Si no has sido tú, escribe cuanto antes a {% if brand.support_email %}{{ brand.support_email }}{% else %}soporte{% endif %}.
+
+{% include "_footer.txt" %}

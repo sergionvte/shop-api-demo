@@ -1,0 +1,1 @@
+Solicitud de cambio de email en tu cuenta de {{ brand.name }}

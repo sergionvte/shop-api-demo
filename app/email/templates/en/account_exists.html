@@ -1,0 +1,6 @@
+{% extends "_layout.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Someone tried to create a {{ brand.name }} account with this email, but there is already one.</p>
+<p style="margin:0 0 16px;">If it was you, sign in with your password{% if password_reset %} or use "Forgot password" to choose a new one{% endif %}.</p>
+<p style="margin:0 0 16px;color:#52525b;">If it was not you, you can ignore this email: your account has not changed.</p>
+{% endblock %}

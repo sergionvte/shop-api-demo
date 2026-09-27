@@ -1,0 +1,5 @@
+This is a test email sent with `apigen email test`.
+
+If you are reading it, the email configuration works.
+
+{% include "_footer.txt" %}

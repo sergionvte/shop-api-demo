@@ -1,0 +1,9 @@
+Se ha pedido usar esta dirección como nuevo email de una cuenta de {{ brand.name }}.
+
+Confírmalo con este enlace. Caduca en {{ expires_in }}.
+
+{{ action_url }}
+
+Si no has sido tú, ignora este correo: no cambiará nada.
+
+{% include "_footer.txt" %}

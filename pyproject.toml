@@ -1,0 +1,72 @@
+[project]
+name = "tienda-demo-api"
+version = "0.1.0"
+description = "Tienda Demo API"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141",
+    "sqlmodel>=0.0.47",
+    "sqlalchemy[asyncio]>=2.0.40",
+    "pydantic-settings>=2.15",
+    "pydantic[email]>=2.11",
+    # Se usan atributos privados de SlowAPI (app/core/rate_limit.py): acotar versión.
+    "slowapi>=0.1.10,<0.2",
+    "limits>=5.8",
+    "pyjwt[crypto]>=2.15",
+    "pwdlib[argon2]>=0.3.1",
+    "alembic>=1.20",
+    "aiosqlite>=0.22",
+    "asyncpg>=0.31",
+    "redis>=8.1",
+    "uvicorn[standard]>=0.54",
+    "typer>=0.27",
+    "jinja2>=3.1.6",
+    "pyyaml>=6.0.3",
+    "python-multipart>=0.0.32",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=1.4",
+    "httpx>=0.28",
+    "locust>=2.46",
+    "ruff>=0.16",
+]
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# security/checks: scripts de auditoría del laboratorio (no forman parte del producto).
+extend-exclude = ["alembic/versions", "security/checks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "ASYNC"]
+ignore = ["B008", "S101"]
+
+[tool.ruff.lint.per-file-ignores]
+# Ficheros de registro que `apigen` edita línea a línea (una importación por recurso,
+# para poder añadirlas/quitarlas): no se reordenan.
+"app/models/__init__.py" = ["I001"]
+"app/api/*/router.py" = ["I001"]
+"app/tasks/__init__.py" = ["I001"]
+# Textos del README para clientes (plantillas en/es): líneas largas a propósito.
+"apigen/docs.py" = ["E501"]
+"tests/**" = ["S105", "S106"]
+"loadtests/**" = ["S311", "S105", "S106"]

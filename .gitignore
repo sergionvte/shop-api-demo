@@ -1,0 +1,57 @@
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+keys/
+*.pem
+# Claves, credenciales y volcados: nunca al repositorio (ni al de un cliente).
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+credentials*.json
+*.sqlite
+*.sqlite3
+*.sql
+*.dump
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Bases de datos locales
+*.db
+*.db-shm
+*.db-wal
+
+# Informes de carga
+loadtests/reports/*
+!loadtests/reports/.gitkeep
+
+.DS_Store
+
+# graphify: se versionan graph.json, GRAPH_REPORT.md, manifest.json y las etiquetas
+# (así cualquier clon/sesión tiene el grafo). Lo local o regenerable, no:
+graphify-out/cache/
+graphify-out/cost.json
+graphify-out/graph.html
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/.graphify_*.json
+!graphify-out/.graphify_labels.json
+graphify-out/.graphify_labels.json.sig
+graphify-out/20*/
+
+# Correos de desarrollo (EMAIL_BACKEND=file) y vistas previas (apigen email preview)
+var/
+
+# Variables locales de la demo
+.env.demo
+!.env.demo.example

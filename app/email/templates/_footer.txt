@@ -1,0 +1,7 @@
+--
+{{ brand.name }}{% if brand.url %} - {{ brand.url }}{% endif %}
+
+{% if brand.support_email %}{{ labels.support }} {{ brand.support_email }}
+{% endif %}
+{% if brand.footer %}{{ brand.footer }}
+{% endif %}

@@ -1,0 +1,8 @@
+{% extends "_layout.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Confirma que esta dirección es tuya para terminar de configurar tu cuenta de {{ brand.name }}.</p>
+<p style="margin:0 0 16px;">El enlace caduca en {{ expires_in }}.</p>
+{% set button_label = "Confirmar mi email" %}
+{% include "_button.html" %}
+<p style="margin:0 0 16px;color:#52525b;">Si no has creado ninguna cuenta, ignora este correo.</p>
+{% endblock %}

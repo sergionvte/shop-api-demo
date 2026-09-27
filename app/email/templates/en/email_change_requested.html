@@ -1,0 +1,6 @@
+{% extends "_layout.html" %}
+{% block content %}
+<p style="margin:0 0 16px;">Hi{% if user_name %} {{ user_name }}{% endif %},</p>
+<p style="margin:0 0 16px;">A change of the email of your {{ brand.name }} account to {{ new_email }} was requested. It will only take effect once the new address is confirmed.</p>
+<p style="margin:0 0 16px;color:#52525b;">If it was not you, change your password now{% if brand.support_email %} and contact {{ brand.support_email }}{% endif %}.</p>
+{% endblock %}

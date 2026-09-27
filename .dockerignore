@@ -1,0 +1,21 @@
+.venv
+.env
+.env.*
+!.env.example
+keys
+*.db*
+__pycache__
+.pytest_cache
+.ruff_cache
+loadtests/reports
+.git
+.DS_Store
+# Fuera del build context (la imagen hace COPY selectivo, pero no hace falta enviarlos):
+# grafo, configuración de agentes, informes de seguridad, tests y pruebas de carga.
+graphify-out
+.claude
+security
+tests
+loadtests
+guia
+var
