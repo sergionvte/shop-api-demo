@@ -5,7 +5,7 @@ registro y login con JWT, y **pedidos privados por cliente** con una factura que
 **en segundo plano**. Construida con FastAPI, SQLModel, JWT (access + refresh rotatorio),
 rate limiting y una cola de trabajos propia.
 
-> **Demo en vivo:** https://tienda-demo-api.onrender.com/docs
+> **Demo en vivo:** https://shop-api-demo.onrender.com/docs
 > Alojada en el plan gratuito de Render: si lleva un rato sin uso, la primera petición tarda
 > ~1 minuto en despertar. La base de datos es **temporal** y se reinicia con datos de ejemplo
 > en cada arranque, así que puedes probar sin miedo.
@@ -31,14 +31,14 @@ También puedes importar la colección de **Postman** de `docs/postman/` (guarda
 
 ## Guía de integración (frontend / móvil)
 
-URL base: `https://tienda-demo-api.onrender.com` · prefijo: `/api/v1` · JSON de entrada y salida (`Content-Type: application/json`). Documentación interactiva en `https://tienda-demo-api.onrender.com/docs` con `DOCS_ENABLED=true` (desactivada por defecto en producción).
+URL base: `https://shop-api-demo.onrender.com` · prefijo: `/api/v1` · JSON de entrada y salida (`Content-Type: application/json`). Documentación interactiva en `https://shop-api-demo.onrender.com/docs` con `DOCS_ENABLED=true` (desactivada por defecto en producción).
 
 ### Primeros pasos
 
 1. **Registro** (si el registro público está activado):
 
    ```bash
-   curl -X POST https://tienda-demo-api.onrender.com/api/v1/auth/register -H 'Content-Type: application/json' \
+   curl -X POST https://shop-api-demo.onrender.com/api/v1/auth/register -H 'Content-Type: application/json' \
      -d '{"email": "ana@example.com", "password": "una frase larga"}'
    ```
 
@@ -46,19 +46,19 @@ URL base: `https://tienda-demo-api.onrender.com` · prefijo: `/api/v1` · JSON d
 2. **Login** (formulario, no JSON):
 
    ```bash
-   curl -X POST https://tienda-demo-api.onrender.com/api/v1/auth/login -d 'username=ana@example.com' --data-urlencode 'password=una frase larga'
+   curl -X POST https://shop-api-demo.onrender.com/api/v1/auth/login -d 'username=ana@example.com' --data-urlencode 'password=una frase larga'
    ```
 
    `200` → `{"access_token": "eyJ…", "refresh_token": "…", "token_type": "bearer", "expires_in": 900, "scope": "read write"}`
 3. **Llama a la API** con el token de acceso:
 
    ```bash
-   curl https://tienda-demo-api.onrender.com/api/v1/users/me -H "Authorization: Bearer $ACCESS_TOKEN"
+   curl https://shop-api-demo.onrender.com/api/v1/users/me -H "Authorization: Bearer $ACCESS_TOKEN"
    ```
 4. **Renueva** al recibir `401` con `code: token_expired`:
 
    ```bash
-   curl -X POST https://tienda-demo-api.onrender.com/api/v1/auth/refresh -H 'Content-Type: application/json' -d '{"refresh_token": "…"}'
+   curl -X POST https://shop-api-demo.onrender.com/api/v1/auth/refresh -H 'Content-Type: application/json' -d '{"refresh_token": "…"}'
    ```
 
    Misma respuesta que el login: **guarda el par nuevo** (el refresh anterior deja de valer).
@@ -146,10 +146,10 @@ Ejemplos:
 
 ```bash
 # Crear
-curl -X POST https://tienda-demo-api.onrender.com/api/v1/categories -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+curl -X POST https://shop-api-demo.onrender.com/api/v1/categories -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"name": "text", "slug": "ropa-deportiva"}'
 # Listar (página, orden y filtro)
-curl "https://tienda-demo-api.onrender.com/api/v1/categories?limit=20&offset=0&order_by=-created_at"
+curl "https://shop-api-demo.onrender.com/api/v1/categories?limit=20&offset=0&order_by=-created_at"
 ```
 
 ##### `orders`
@@ -183,10 +183,10 @@ Ejemplos:
 
 ```bash
 # Crear
-curl -X POST https://tienda-demo-api.onrender.com/api/v1/orders -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+curl -X POST https://shop-api-demo.onrender.com/api/v1/orders -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"product_id": "<product id>", "quantity": 1, "shipping_address": "Some text"}'
 # Listar (página, orden y filtro)
-curl "https://tienda-demo-api.onrender.com/api/v1/orders?limit=20&offset=0&order_by=-created_at&status=pending" -H "Authorization: Bearer $TOKEN"
+curl "https://shop-api-demo.onrender.com/api/v1/orders?limit=20&offset=0&order_by=-created_at&status=pending" -H "Authorization: Bearer $TOKEN"
 ```
 
 Acciones:
@@ -223,10 +223,10 @@ Ejemplos:
 
 ```bash
 # Crear
-curl -X POST https://tienda-demo-api.onrender.com/api/v1/products -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+curl -X POST https://shop-api-demo.onrender.com/api/v1/products -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"name": "text", "price": "9.00"}'
 # Listar (página, orden y filtro)
-curl "https://tienda-demo-api.onrender.com/api/v1/products?limit=20&offset=0&order_by=-created_at&active=true"
+curl "https://shop-api-demo.onrender.com/api/v1/products?limit=20&offset=0&order_by=-created_at&active=true"
 ```
 
 ### Tareas en segundo plano
@@ -282,6 +282,6 @@ Un único servicio web Docker. `start.sh` aplica las migraciones, carga los dato
 | `SECRET_KEY` | aleatoria (32+ caracteres) |
 | `DATABASE_URL` | `sqlite+aiosqlite:////tmp/demo.db` (disco temporal) |
 | `ALLOW_SQLITE_IN_PRODUCTION` | `true` |
-| `ALLOWED_HOSTS` | `tienda-demo-api.onrender.com` |
+| `ALLOWED_HOSTS` | `shop-api-demo.onrender.com` |
 | `DOCS_ENABLED` | `true` |
 | `DEMO_ADMIN_EMAIL` / `DEMO_ADMIN_PASSWORD` | admin de la demo (la contraseña no se publica) |
