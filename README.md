@@ -283,6 +283,6 @@ Un único servicio web Docker. `start.sh` aplica las migraciones, carga los dato
 | `DATABASE_URL` | `sqlite+aiosqlite:////tmp/demo.db` (disco temporal) |
 | `ALLOW_SQLITE_IN_PRODUCTION` | `true` |
 | `ALLOWED_HOSTS` | `shop-api-demo.onrender.com` |
-| `TRUSTED_PROXIES` | `127.0.0.1` (el proxy de Render llega desde dentro del contenedor: IP real del cliente y HSTS) |
+| `TRUSTED_PROXIES` | `127.0.0.1,10.0.0.0/8` + los [rangos IPv4 de Cloudflare](https://www.cloudflare.com/ips-v4) (cadena: visitante → Cloudflare → balanceador de Render → proxy local). Así la API ve la IP real del visitante y envía HSTS |
 | `DOCS_ENABLED` | `true` |
 | `DEMO_ADMIN_EMAIL` / `DEMO_ADMIN_PASSWORD` | admin de la demo (la contraseña no se publica) |
