@@ -7,6 +7,8 @@ valores inseguros.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import ipaddress
 import logging
 import os
@@ -255,6 +257,37 @@ class Settings(BaseSettings):
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     # None = JSON en producción, texto legible en desarrollo.
     LOG_JSON: bool | None = None
+    # IP del cliente en el log de acceso: full | truncated (/24 en IPv4, /48 en IPv6) |
+    # off. Minimización (ISO 27701 7.4.5): los eventos de auditoría sí guardan la IP
+    # completa, porque su finalidad es la seguridad.
+    ACCESS_LOG_IP: Literal["full", "truncated", "off"] = "truncated"
+
+    # --- Auditoría (SOC 2 CC7.2 / ISO 27701 6.9.4) --------------------------------
+    # Clave HMAC que encadena los eventos de auditoría de cada proceso: con ella, quien
+    # pueda escribir en los logs no puede alterar ni borrar eventos sin que lo detecte
+    # `apigen audit verify`. Distinta de SECRET_KEY (el worker también audita y no
+    # recibe la clave de los JWT). Vacía = cadena SHA-256 sin clave (solo detecta
+    # errores accidentales).
+    AUDIT_HMAC_KEY: SecretStr = SecretStr("")
+    # Cifrado en reposo de los campos `sensitive` (AES-256-GCM): 32 bytes en base64
+    # (`apigen secret --data-key`). Obligatoria en producción si algún recurso los
+    # tiene. Para rotar: la nueva aquí y la anterior en PREVIOUS (solo descifra).
+    DATA_ENCRYPTION_KEY: SecretStr = SecretStr("")
+    DATA_ENCRYPTION_PREVIOUS_KEYS: CommaList = []
+
+    # --- Privacidad y retención (ISO 27701 7.3 / 7.4, SOC 2 P4-P5 y C1.2) ---------
+    # Derechos del interesado: GET /users/me/export (copia de sus datos) y
+    # DELETE /users/me (supresión de su cuenta y de todo lo que le pertenece).
+    ALLOW_SELF_DELETION: bool = True
+    RATE_LIMIT_PRIVACY: str = "5/hour"
+    # Filas por tabla en la exportación (si hay más, se marca `truncated`).
+    PRIVACY_EXPORT_MAX_ROWS: int = Field(default=10_000, ge=100, le=1_000_000)
+    # `apigen db prune` (0 = no se borra nada):
+    # - cuentas nunca verificadas, solo con EMAIL_VERIFICATION=required (no pueden
+    #   iniciar sesión, así que no tiene sentido guardar su email indefinidamente);
+    UNVERIFIED_ACCOUNT_RETENTION_DAYS: int = Field(default=30, ge=0, le=3650)
+    # - filas borradas lógicamente (soft delete): pasado este plazo se borran de verdad.
+    SOFT_DELETE_RETENTION_DAYS: int = Field(default=30, ge=0, le=3650)
 
     @field_validator(
         "CORS_ORIGINS",
@@ -262,6 +295,7 @@ class Settings(BaseSettings):
         "TRUSTED_PROXIES",
         "JWT_PREVIOUS_SECRET_KEYS",
         "MAIL_LANGUAGES",
+        "DATA_ENCRYPTION_PREVIOUS_KEYS",
         mode="before",
     )
     @classmethod
@@ -284,6 +318,7 @@ class Settings(BaseSettings):
         "RATE_LIMIT_REFRESH",
         "RATE_LIMIT_EMAIL_REQUEST",
         "RATE_LIMIT_TOKEN_CONFIRM",
+        "RATE_LIMIT_PRIVACY",
     )
     @classmethod
     def _valid_limit(cls, value: str | None) -> str | None:
@@ -351,7 +386,24 @@ class Settings(BaseSettings):
         if self.CORS_ALLOW_CREDENTIALS and "*" in self.CORS_ORIGINS:
             problems.append("CORS_ORIGINS='*' no se puede combinar con CORS_ALLOW_CREDENTIALS")
 
+        audit_key = self.AUDIT_HMAC_KEY.get_secret_value()
+        if audit_key and (len(audit_key) < 32 or audit_key == secret):
+            problems.append(
+                "AUDIT_HMAC_KEY necesita 32+ caracteres aleatorios y distinta de SECRET_KEY"
+            )
+
+        problems += _data_key_problems(self)
+
         if self.is_production:
+            if not audit_key:
+                logger.warning(
+                    "AUDIT_HMAC_KEY vacía: la cadena de auditoría no resiste manipulaciones "
+                    "deliberadas. Genera una con `apigen secret`."
+                )
+            if self.LOG_JSON is False:
+                logger.warning(
+                    "LOG_JSON=false en producción: `apigen audit verify` solo lee logs JSON."
+                )
             if self.DEBUG:
                 problems.append("DEBUG debe ser false en producción")
             if self.DATABASE_URL.startswith("sqlite"):
@@ -637,6 +689,28 @@ def _email_problems(s: Settings) -> list[str]:
             problems.append("SMTP_USER sin SMTP_PASSWORD (o SMTP_PASSWORD_FILE)")
     if prod and backend == "console":
         logger.warning("EMAIL_BACKEND=console en producción: los correos solo van al log.")
+    return problems
+
+
+def _data_key_problems(s: Settings) -> list[str]:
+    """Formato de las claves de cifrado de datos (32 bytes en base64)."""
+    problems: list[str] = []
+    current = s.DATA_ENCRYPTION_KEY.get_secret_value()
+    for name, value in [("DATA_ENCRYPTION_KEY", current)] + [
+        ("DATA_ENCRYPTION_PREVIOUS_KEYS", k) for k in s.DATA_ENCRYPTION_PREVIOUS_KEYS
+    ]:
+        if not value:
+            continue
+        try:
+            raw = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+        except (binascii.Error, ValueError):
+            raw = b""
+        if len(raw) != 32:
+            problems.append(
+                f"{name}: 32 bytes en base64 (genera una con `apigen secret --data-key`)"
+            )
+    if s.DATA_ENCRYPTION_PREVIOUS_KEYS and not current:
+        problems.append("DATA_ENCRYPTION_PREVIOUS_KEYS sin DATA_ENCRYPTION_KEY")
     return problems
 
 

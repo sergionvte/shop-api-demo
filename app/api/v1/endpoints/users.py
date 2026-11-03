@@ -14,6 +14,7 @@ from fastapi import (
     Response,
     status,
 )
+from fastapi.responses import JSONResponse
 from sqlalchemy import func
 from sqlmodel import col, select
 
@@ -32,6 +33,7 @@ from app.models.user import User
 from app.schemas.account import EmailChangeRequest
 from app.schemas.common import Message, Page
 from app.schemas.user import (
+    AccountDeletion,
     PasswordChange,
     UserAdminCreate,
     UserAdminRead,
@@ -39,7 +41,7 @@ from app.schemas.user import (
     UserRead,
     UserUpdateMe,
 )
-from app.services import account_tokens
+from app.services import account_tokens, privacy
 from app.services import auth as auth_service
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -165,6 +167,62 @@ async def change_email(
     )
     audit("auth.email_change.requested", user_id=user.id, client_ip=client_ip(request))
     return EMAIL_CHANGE_ACCEPTED
+
+
+# --- Derechos del interesado (ISO 27701 7.3, SOC 2 P5) ------------------------------
+@router.get(
+    "/me/export",
+    response_class=JSONResponse,
+    responses={200: {"description": "JSON with every record the API keeps about you"}},
+)
+@limiter.limit(settings.RATE_LIMIT_PRIVACY)
+async def export_me(
+    request: Request, response: Response, principal: ReadMe, session: SessionDep
+) -> JSONResponse:
+    """Descarga una copia de todos tus datos: cuenta, sesiones, correos enviados,
+    trabajos y las filas de los recursos que te pertenecen (derecho de acceso y
+    portabilidad)."""
+    user = principal.user
+    assert user is not None
+    data = await privacy.export_user_data(session, user)
+    audit("privacy.export", user_id=user.id, client_ip=client_ip(request))
+    return JSONResponse(
+        data,
+        headers={"Content-Disposition": 'attachment; filename="my-data.json"'},
+    )
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit(settings.RATE_LIMIT_LOGIN)
+async def delete_me(
+    request: Request,
+    response: Response,
+    principal: WriteMe,
+    payload: AccountDeletion,
+    session: SessionDep,
+) -> None:
+    """Borra tu cuenta y, en cascada, todo lo que te pertenece (derecho de supresión).
+    Pide la contraseña actual. Irreversible."""
+    if not settings.ALLOW_SELF_DELETION:
+        raise APIError(
+            status.HTTP_403_FORBIDDEN,
+            "Account deletion is handled by an administrator",
+            code="self_deletion_disabled",
+        )
+    user = principal.user
+    assert user is not None
+    await session.commit()  # libera la conexión mientras se calcula Argon2
+    valid, _ = await verify_password(payload.current_password, user.hashed_password)
+    if not valid:
+        audit("privacy.erasure.wrong_password", user_id=user.id, client_ip=client_ip(request))
+        raise APIError(
+            status.HTTP_400_BAD_REQUEST, "Current password is incorrect", code="wrong_password"
+        )
+    if _counts_as_admin(user) and await _admin_count(session) <= 1:
+        raise LAST_ADMIN
+    await repo.delete(session, user)
+    # Solo el ID (seudónimo): el log de auditoría no guarda el email (SOC 2 P4.3).
+    audit("privacy.erasure", user_id=user.id, client_ip=client_ip(request))
 
 
 # --- Administración -------------------------------------------------------------

@@ -80,3 +80,10 @@ class UserAdminUpdate(PartialUpdate):
 class PasswordChange(StrictInput):
     current_password: str = Field(min_length=1, max_length=1024)
     new_password: str = Field(min_length=1, max_length=1024)
+
+
+class AccountDeletion(StrictInput):
+    """Confirmación para borrar la propia cuenta: la contraseña actual (un token robado
+    no basta para destruir la cuenta)."""
+
+    current_password: str = Field(min_length=1, max_length=1024)

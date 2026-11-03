@@ -113,6 +113,8 @@ El registro crea usuarios con rol `user`. Los admins (rol `admin`) ven y gestion
 |---|---|---|---|
 | GET / PATCH | `/api/v1/users/me` | Usuario autenticado | Perfil propio |
 | POST | `/api/v1/users/me/password` | Usuario autenticado | Cambiar contraseña (cierra sesiones) |
+| GET | `/api/v1/users/me/export` | Usuario autenticado | Descargar en JSON una copia de todos tus datos (5/hora) |
+| DELETE | `/api/v1/users/me` | Usuario autenticado | Borrar tu cuenta y todo lo tuyo; cuerpo `{"current_password": "…"}` (irreversible; `403 self_deletion_disabled` si el operador lo desactivó) |
 | GET / POST | `/api/v1/users` | Admins | Listar / crear usuarios |
 | GET / PATCH / DELETE | `/api/v1/users/{id}` | Admins | Gestionar un usuario (rol, activo) |
 | POST | `/api/v1/users/{id}/unlock` | Admins | Desbloquear una cuenta |

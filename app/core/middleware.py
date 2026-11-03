@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import re
 import time
@@ -18,6 +19,23 @@ from app.core.logging import request_id_ctx
 
 access_logger = logging.getLogger("app.access")
 _SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{8,64}$")
+
+
+def log_ip(ip: str | None) -> str | None:
+    """IP para el log de acceso según ACCESS_LOG_IP (minimización, ISO 27701 7.4.5):
+    `truncated` deja la red (/24 en IPv4, /48 en IPv6), suficiente para diagnosticar
+    sin identificar a la persona."""
+    mode = settings.ACCESS_LOG_IP
+    if not ip or mode == "full":
+        return ip
+    if mode == "off":
+        return None
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        return None
+    prefix = 24 if address.version == 4 else 48
+    return str(ipaddress.ip_network(f"{address}/{prefix}", strict=False))
 
 
 class RequestContextMiddleware:
@@ -66,7 +84,7 @@ class RequestContextMiddleware:
                     "path": scope["path"],
                     "status": status,
                     "duration_ms": elapsed_ms,
-                    "client_ip": client[0] if client else None,
+                    "client_ip": log_ip(client[0] if client else None),
                 },
             )
             request_id_ctx.reset(token)

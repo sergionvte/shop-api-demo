@@ -18,7 +18,9 @@ from app.schemas.common import PartialUpdate, StrictInput
 class OrderCreate(StrictInput):
     product_id: uuid.UUID = Field()
     quantity: int = Field(ge=1, le=20)
-    shipping_address: str = Field(max_length=500)
+    shipping_address: str = Field(
+        max_length=500, json_schema_extra={"x-data-classification": "pii"}
+    )
     status: OrderStatus = Field(default=OrderStatus.pending)
     total: Decimal | None = Field(
         default=None, ge=0, max_digits=12, decimal_places=2, description="Lo calcula el servidor"
@@ -30,7 +32,9 @@ class OrderUpdate(PartialUpdate):
 
     product_id: uuid.UUID | None = Field(default=None)
     quantity: int | None = Field(default=None, ge=1, le=20)
-    shipping_address: str | None = Field(default=None, max_length=500)
+    shipping_address: str | None = Field(
+        default=None, max_length=500, json_schema_extra={"x-data-classification": "pii"}
+    )
     status: OrderStatus | None = Field(default=None)
     total: Decimal | None = Field(
         default=None, ge=0, max_digits=12, decimal_places=2, description="Lo calcula el servidor"

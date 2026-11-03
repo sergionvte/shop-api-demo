@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
+from sqlmodel import SQLModel
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.api import health
@@ -27,6 +28,7 @@ from app.core.middleware import (
     UnhandledErrorMiddleware,
 )
 from app.core.rate_limit import enforce_rate_limits, limiter
+from app.db.crypto import check_keys
 from app.db.session import engine
 
 logger = logging.getLogger("app")
@@ -67,7 +69,11 @@ class VersionInfo(BaseModel):
 
 def create_app() -> FastAPI:
     setup_logging()
+    import app.models  # noqa: F401  (todas las tablas)
     import app.tasks  # noqa: F401  (registra las tareas: enqueue valida los nombres)
+
+    # En producción, sin DATA_ENCRYPTION_KEY y con campos sensitive, no se arranca.
+    check_keys(SQLModel.metadata)
 
     docs = settings.docs_enabled
     app = FastAPI(

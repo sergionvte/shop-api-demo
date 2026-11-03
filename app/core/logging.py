@@ -14,7 +14,17 @@ from app.core.config import settings
 request_id_ctx: ContextVar[str] = ContextVar("request_id", default="-")
 
 _RESERVED = set(logging.makeLogRecord({}).__dict__) | {"message", "asctime"}
-_TEXT_SKIP = _RESERVED | {"request_id", "color_message"}
+# En texto (desarrollo) la cadena de auditoría solo estorba: se verifica en los logs JSON.
+_TEXT_SKIP = _RESERVED | {
+    "request_id",
+    "color_message",
+    "at",
+    "audit_alg",
+    "audit_stream",
+    "audit_seq",
+    "audit_prev",
+    "audit_hash",
+}
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 
 

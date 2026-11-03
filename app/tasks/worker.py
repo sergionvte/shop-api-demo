@@ -319,8 +319,13 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--limit", type=int, default=1000, help="Máximo de trabajos con --once")
     args = parser.parse_args(argv)
     setup_logging()
-    import app.tasks  # noqa: F401  (registra todas las tareas)
+    from sqlmodel import SQLModel
 
+    import app.models  # noqa: F401  (todas las tablas: para comprobar las claves)
+    import app.tasks  # noqa: F401  (registra todas las tareas)
+    from app.db.crypto import check_keys
+
+    check_keys(SQLModel.metadata)
     asyncio.run(_main(args))
 
 

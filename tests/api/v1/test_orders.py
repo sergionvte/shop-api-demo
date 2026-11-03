@@ -155,3 +155,26 @@ async def test_action_summary(client, db, user, user_headers, admin, admin_heade
     response = await client.post(url, json=body, headers=user_headers)
     assert response.status_code == 200, response.text
     assert (await client.post(url, json=body)).status_code == 401
+
+
+async def test_privacy_export_and_erasure(client, db, admin_headers):
+    """Derechos del interesado: su exportación incluye sus pedidos y borrar su cuenta los borra."""
+    from tests.conftest import TEST_PASSWORD, create_user, headers_for
+
+    person = await create_user()
+    headers = headers_for(person)
+    payload = await _payload(db, person.id)
+    created = await client.post(BASE, json=payload, headers=headers)
+    assert created.status_code == 201, created.text
+    item_id = created.json()["id"]
+
+    exported = await client.get("/api/v1/users/me/export", headers=headers)
+    assert exported.status_code == 200, exported.text
+    rows = exported.json()["resources"]["orders"]["rows"]
+    assert item_id in [row["id"] for row in rows]
+
+    erased = await client.request(
+        "DELETE", "/api/v1/users/me", json={"current_password": TEST_PASSWORD}, headers=headers
+    )
+    assert erased.status_code == 204, erased.text
+    assert (await client.get(f"{BASE}/{item_id}", headers=admin_headers)).status_code == 404
